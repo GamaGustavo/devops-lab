@@ -1,0 +1,67 @@
+---
+- name: Hardening and Base Setup for Ubuntu Lab
+
+  hosts: lab_servers
+  become: yes
+  vars:
+    ssh_port: 22
+  tasks:
+
+      # 1. Atualização de Segurança
+    - name: Update apt cache and upgrade packages
+      apt:
+        update_cache: yes
+        upgrade: dist
+        autoremove: yes
+        autoclean: yes
+
+      # 2. Configuração de Firewall (UFW)
+    - name: Install UFW
+      apt:
+        name: ufw
+        state: present
+
+    - name: Allow SSH connections
+      ufw:
+        rule: allow
+        port: "{{ ssh_port }}"
+        proto: tcp
+
+    - name: Enable UFW
+      ufw:
+        state: enabled
+        policy: deny
+
+      # 3. Hardening do SSH
+    - name: Configure SSHD security settings
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+        state: present
+      loop:
+        - { regexp: '^#?PasswordAuthentication', line: 'PasswordAuthentication no' }
+        - { regexp: '^#?PermitRootLogin', line: 'PermitRootLogin no' }
+        - { regexp: '^#?X11Forwarding', line: 'X11Forwarding no' }
+      notify: Restart SSH
+
+      # 4. Gestão de Usuários
+    - name: Ensure admin user exists and has sudo privileges
+      user:
+        name: "{{ admin_user }}"
+        groups: "{{ admin_groups }}"
+        append: yes
+        shell: "{{ admin_shell }}"
+        state: present
+
+    - name: Deploy SSH Public Key
+      authorized_key:
+        user: "{{ admin_user }}"
+        key: "{{ lookup('file', '~/.ssh/ansible_lab_ed25519.pub') }}"
+        state: present
+
+  handlers:
+    - name: Restart SSH
+      service:
+        name: ssh
+        state: restarted

@@ -1,0 +1,6 @@
+---
+admin_user: "gustavo"
+admin_shell: "/bin/bash"
+admin_groups:
+  - sudo
+  - adm
