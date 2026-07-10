@@ -1,0 +1,96 @@
+---
+- name: Install Docker Engine and Portainer CE
+  hosts: lab_servers
+  become: yes
+  vars:
+    # Fallback de segurança: Se o codename não for conhecido pelo repo do Docker, usa 'noble' (24.04)
+    docker_ubuntu_release: "{{ ansible_facts['distribution_release'] if ansible_facts['distribution_release'] in ['jammy', 'noble', 'focal'] else 'noble' }}"
+
+  tasks:
+    # 1. Pre-requisitos e Configuração do Repo
+    - name: Install Docker prerequisites
+      apt:
+        name:
+          - ca-certificates
+          - curl
+          - gnupg
+        state: present
+        update_cache: yes
+
+    - name: Create Docker keyring directory
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Download Docker GPG key
+      get_url:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: '0644'
+
+    - name: Add Docker repository (DEB822 format)
+      deb822_repository:
+        name: docker
+        types: deb
+        uris: https://download.docker.com/linux/ubuntu
+        suites: "{{ docker_ubuntu_release }}"
+        components: stable
+        architectures: amd64
+        signed_by: /etc/apt/keyrings/docker.asc
+        state: present
+
+    # 2. Instalação do Docker Engine
+    - name: Install Docker Engine and Plugins
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+        update_cache: yes
+
+    - name: Ensure Docker service is running and enabled
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Add user to docker group ('Security:' avoid running docker as root)
+      user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: yes
+
+    # 3. Deploy do Portainer (Gestão Visual)
+    - name: Create Portainer directory
+      file:
+        path: /opt/portainer
+        state: directory
+        mode: '0755'
+
+    - name: Create docker-compose.yml for Portainer
+      copy:
+        dest: /opt/portainer/docker-compose.yml
+        content: |
+          services:
+            portainer:
+              image: portainer/portainer-ce:latest
+              container_name: portainer
+              restart: always
+              ports:
+                - "9443:9443"
+              volumes:
+                - /var/run/docker.sock:/var/run/docker.sock
+                - portainer_data:/data
+          volumes:
+            portainer_data:
+
+    - name: Deploy Portainer via Docker Compose
+      command: docker compose up -d
+      args:
+        chdir: /opt/portainer
+      register: portainer_deploy
+      changed_when: "'Started' in portainer_deploy.stdout or 'Created' in portainer_deploy.stdout"
