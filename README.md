@@ -23,8 +23,9 @@ Este repositório contém Infrastructure as Code (IaC) para provisionamento e ge
 - `Ubuntu Server 26.04`
 - `Ansible` (Idempotency, SSH Key Management, UFW, SSH Hardening)
 - `Git` + `GitHub` (Versionamento de Infra)
+- `Docker` + `Portainer`
 
-> *(Em breve: Docker, GitHub Actions, Prometheus/Grafana)*
+> *(Em breve: GitHub Actions, Prometheus/Grafana)*
 
 ### 📂 Estrutura do Repositório
 
@@ -68,7 +69,7 @@ flowchart LR
 
 ```bash
 # 1. Clone repository
-git clone <your-repo-url>
+git clone https://github.com/GamaGustavo/devops-lab.git
 cd devops-lab
 
 # 2. Configure o inventory
