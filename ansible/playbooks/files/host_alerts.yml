@@ -1,0 +1,11 @@
+groups: 
+  - name: host_alerts
+    rules:
+      - alert: InstanceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Instância {{ $labels.instance }} fora do ar"
+          description: "{{ $labels.instance }} do job {{ $labels.job }} está fora do ar há mais de 1 minuto."

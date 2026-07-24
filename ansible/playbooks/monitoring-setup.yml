@@ -1,0 +1,71 @@
+---
+- name: Intall Prometheus
+  hosts: lab_servers
+  become: yes
+  vars:
+    monitoring_path: /opt/monitoring
+    prometheus_path: "{{ monitoring_path }}/prometheus"
+    alertmanager_path: "{{ monitoring_path }}/alertmanager"
+    alert_rules_path: "{{ prometheus_path }}/rules"
+
+
+    prometheus_version: "v2.51.0"
+    node_exporter_version: "v1.7.0"
+    cadvisor_version: "v0.60.5"
+    grafana_version: "13.1.1"
+   
+
+
+  tasks:
+    - name: Create monitoring directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - "{{ monitoring_path }}"
+        - "{{ prometheus_path }}"
+        - "{{ alertmanager_path }}"
+        - "{{ alert_rules_path }}"
+        - "{{ alertmanager_path }}/templates"
+    
+    - name: Create prometheus config
+      ansible.builtin.copy:
+        src: prometheus.yml
+        dest: "{{ prometheus_path }}/prometheus.yml"
+        mode: '0644'
+
+    - name: Create alertmanager config
+      ansible.builtin.template:
+        dest: "{{ alertmanager_path }}/alertmanager.yml"
+        src: alertmanager.yml
+        mode: '0644'    
+
+    - name: Create alerting rules
+      ansible.builtin.copy:
+        src: host_alerts.yml
+        dest: "{{ alert_rules_path }}/host_alerts.yml"
+        mode: '0644'     
+
+    - name: Create telegram template
+      ansible.builtin.copy:
+        src: telegram.tmpl
+        dest: "{{ alertmanager_path }}/templates/telegram.tmpl"
+        mode: '0644'
+
+    - name: Create docker-compose file for monitoring
+      ansible.builtin.template:
+        src: monitoring-compose.yml
+        dest: "{{ monitoring_path }}/docker-compose.yml"
+        mode: '0644'
+         
+    - name: Deploy monitoring stack using Docker Compose module
+      community.docker.docker_compose_v2:
+        project_src: "{{ monitoring_path }}"
+        state: present
+        pull: missing
+      register: docker_compose_result
+
+    - name: Show deployment result
+      ansible.builtin.debug:
+        msg: "Stack deployed successfully. Containers changed: {{ docker_compose_result.changed }}"
